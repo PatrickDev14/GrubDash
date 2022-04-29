@@ -11,7 +11,7 @@ const nextId = require("../utils/nextId");
 
 // --- validate dish exists
 function dishExists(req, res, next) {
-  const dishId = Number(req.params.dishId);
+  const { dishId } = req.params;
   const foundDish = dishes.find((dish) => dish.id === dishId);
   if (foundDish) {
     res.locals.dish = foundDish;
@@ -19,7 +19,20 @@ function dishExists(req, res, next) {
   }
   next({
     status: 404,
-    message: `Dish not found: ${req.params.dishId}`,
+    message: `Dish does not exist: ${dishId}`,
+  });
+}
+
+// --- validate request body id matches :dishId
+function dishIdMatches(req, res, next) {
+  const { dishId } = req.params;
+  const { data: { id } = {} } = req.body;
+  if (dishId === id || !id) {
+    return next();
+  }
+  next({
+    status: 400,
+    message: `Dish id does not match route id. Dish: ${id}, Route: ${dishId}`,
   });
 }
 
@@ -83,14 +96,9 @@ function imageUrlIsValid(req, res, next) {
     status: 400,
     message: "Dish must include a image_url."
  });
-} 
+}
 
 // ----------
-
-// GET: read a dish with :dishId
-function read(req, res) {
-  res.json({ data: res.locals.dish });
-}
 
 // POST: create a new dish
 function create(req, res) {
@@ -104,6 +112,23 @@ function create(req, res) {
   };
   dishes.push(newDish);
   res.status(201).json({ data: newDish });
+}
+
+// GET: read a dish with :dishId
+function read(req, res) {
+  res.json({ data: res.locals.dish });
+}
+
+// PUT: update an existing dish with :dishId
+function update(req, res, next) {
+  const dish = res.locals.dish;
+  const { data : { name, description, price, image_url} = {} } = req.body;
+  dish.name = name;
+  dish.description = description;
+  dish.price = price;
+  dish.image_url = image_url;
+  console.log(dish);
+  res.json({ data: dish });
 }
 
 // GET: list all dishes
@@ -121,5 +146,15 @@ module.exports = {
     create
   ],
   read: [ dishExists, read],
+  update: [
+    dishExists,
+    dishIdMatches,
+    nameIsValid,
+    descriptionIsValid,
+    dishHasPrice,
+    priceIsValid,
+    imageUrlIsValid,
+    update,
+  ],
   list,
 }
