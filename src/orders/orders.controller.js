@@ -9,6 +9,20 @@ const nextId = require("../utils/nextId");
 // TODO: Implement the /orders handlers needed to make the tests pass
 // --- validation
 
+// --- validate that order exists
+function orderExists(req, res, next) {
+  const { orderId } = req.params;
+  const foundOrder = orders.find((order) => order.id === orderId);
+  if (foundOrder) {
+    res.locals.order = foundOrder;
+    return next();
+  }
+  next({
+    status: 404,
+    message: `Order ${orderId} not found.`
+  });
+}
+
 // --- validate deliverTo property
 function deliverToIsValid(req, res, next) {
   const { data: { deliverTo } = {} } = req.body;
@@ -60,11 +74,10 @@ function dishesIsValid(req, res, next) {
 // --- validate quantity property
 function quantityIsValid(req, res, next) {
   const { data: { dishes } = {} } = req.body;
-  const hasInvalidQuantity = dishes.find(
-    (dish) => dish.quantity === "" || dish.quantity <= 0 || !Number.isInteger(dish.quantity)
+  const index = dishes.findIndex(
+    (dish) => (dish.quantity === "" || dish.quantity <= 0 || !Number.isInteger(dish.quantity))
   );
-  if (hasInvalidQuantity) {
-    const index = dishes.indexOf(hasInvalidQuantity);
+  if (index >= 0 ) {    // since findIndex returns -1 if an index is not found
     console.log(index);
     next({
       status: 400,
@@ -72,6 +85,18 @@ function quantityIsValid(req, res, next) {
     });
   }
   return next();
+}
+
+// --- validate status for DELETE method
+function statusIsPending(req, res, next) {
+  const { status } = res.locals.order;
+  if (status === "pending") {
+    return next();
+  }
+  next({
+    status: 400,
+    message: "An order cannot be deleted unless it is pending.",
+  });
 }
 
 // ---
@@ -92,6 +117,19 @@ function create(req, res) {
   res.status(201).json({ data: newOrder });
 }
 
+// GET: the existing order where id === :orderId
+function read(req, res) {
+  res.json({ data: res.locals.order });
+}
+
+// DELETE: delete an existing order, which has a status of pending
+function destroy(req, res) {
+  const { orderId } = req.params;
+  const index = orders.findIndex((order) => order.id === orderId);
+  orders.splice(index, 1);
+  res.sendStatus(204);
+}
+
 // GET: list all existing order data
 function list(req, res) {
   res.json({ data: orders });
@@ -105,6 +143,12 @@ module.exports = {
     dishesIsValid,
     quantityIsValid,
     create,
+  ],
+  read: [ orderExists, read ],
+  delete: [
+    orderExists,
+    statusIsPending,
+    destroy,
   ],
   list,
 }
