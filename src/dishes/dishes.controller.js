@@ -6,7 +6,6 @@ const dishes = require(path.resolve("src/data/dishes-data"));
 // Use this function to assign ID's when necessary
 const nextId = require("../utils/nextId");
 
-// TODO: Implement the /dishes handlers needed to make the tests pass
 // --- validation ---
 
 // --- validate dish exists
@@ -23,7 +22,8 @@ function dishExists(req, res, next) {
   });
 }
 
-// --- validate request body id matches :dishId
+// --- validate request body 'id' matches :dishId
+// --- the 'id' property is not required in the body of the request
 function dishIdMatches(req, res, next) {
   const { dishId } = req.params;
   const { data: { id } = {} } = req.body;
@@ -38,7 +38,6 @@ function dishIdMatches(req, res, next) {
 
 // --- validate name property
 function nameIsValid(req, res, next) {
-  // const name = res.locals.dish.name;
   const { data: { name } = {} } = req.body;
   if (name && name.length) {
     return next();
@@ -51,7 +50,6 @@ function nameIsValid(req, res, next) {
 
 // --- validate description property
 function descriptionIsValid(req, res, next) {
-  // const description = res.locals.dish.description;
   const { data: { description } = {} } = req.body;
   if (description && description.length) {
     return next();
@@ -64,7 +62,6 @@ function descriptionIsValid(req, res, next) {
 
 // --- validate price property
 function dishHasPrice(req, res, next) {
-  // const price = res.locals.dish.price;
   const { data: { price } = {} } = req.body;
   if (price) {
     return next();
@@ -75,6 +72,7 @@ function dishHasPrice(req, res, next) {
   });
 }
 
+// --- validate that price property is valid
 function priceIsValid(req, res, next) {
   const { data: { price } = {} } = req.body;
   if (price <= 0 || !Number.isInteger(price)) {
@@ -98,7 +96,7 @@ function imageUrlIsValid(req, res, next) {
  });
 }
 
-// ----------
+// --- handler functions
 
 // POST: create a new dish
 function create(req, res) {
@@ -114,7 +112,7 @@ function create(req, res) {
   res.status(201).json({ data: newDish });
 }
 
-// GET: read a dish with :dishId
+// GET: read a dish where id === :dishId
 function read(req, res) {
   res.json({ data: res.locals.dish });
 }
@@ -127,7 +125,6 @@ function update(req, res, next) {
   dish.description = description;
   dish.price = price;
   dish.image_url = image_url;
-  console.log(dish);
   res.json({ data: dish });
 }
 
