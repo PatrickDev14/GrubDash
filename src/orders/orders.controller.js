@@ -6,7 +6,6 @@ const orders = require(path.resolve("src/data/orders-data"));
 // Use this function to assigh ID's when necessary
 const nextId = require("../utils/nextId");
 
-// TODO: Implement the /orders handlers needed to make the tests pass
 // --- validation
 
 // --- validate that order exists
@@ -20,6 +19,20 @@ function orderExists(req, res, next) {
   next({
     status: 404,
     message: `Order ${orderId} not found.`
+  });
+}
+
+// --- validate that request body 'id' matches :orderId
+// --- the 'id' property is not required in the body of the request
+function orderIdMatches(req, res, next) {
+  const { orderId } = req.params;
+  const { data: { id } = {} } = req.body;
+  if (orderId === id || !id) {
+    return next();
+  }
+  next({
+    status: 400,
+    message: `Order id does not match route id. Order: ${id}, Route: ${orderId}`,
   });
 }
 
@@ -78,7 +91,6 @@ function quantityIsValid(req, res, next) {
     (dish) => (dish.quantity === "" || dish.quantity <= 0 || !Number.isInteger(dish.quantity))
   );
   if (index >= 0 ) {    // since findIndex returns -1 if an index is not found
-    console.log(index);
     next({
       status: 400,
       message: `Dish ${index} must have a quantity that is an integer greater than 0.`
@@ -87,7 +99,31 @@ function quantityIsValid(req, res, next) {
   return next();
 }
 
-// --- validate status for DELETE method
+// --- validate the status property
+function statusIsValid(req, res, next) {
+  const { data: { status } = {} } = req.body;
+  if (status === "pending" || status === "preparing" || status === "out-for-delivery" || status === "delivered") {
+    return next();
+  }
+  next({
+    status: 400,
+    message: "Order must have a status of pending, preparing, out-for-delivery, delivered."
+ });
+}
+
+// --- validate if status is 'delivered' before a PUT method
+function statusIsDelivered(req, res, next) {
+  const { status } = res.locals.order;
+  if (status === "delivered") {
+    next({
+      status: 400,
+      message: "A delivered order cannot be changed.",
+    });
+  }
+  return next();
+}
+
+// --- validate if status is 'pending' before a DELETE method
 function statusIsPending(req, res, next) {
   const { status } = res.locals.order;
   if (status === "pending") {
@@ -99,7 +135,7 @@ function statusIsPending(req, res, next) {
   });
 }
 
-// ---
+// --- handler functions
 
 // POST: save an order and respond with the newly created order
 // Note: Each dish in the Order's dishes property is a complete copy of the dish, rather than a reference to the dish by ID. 
@@ -108,10 +144,10 @@ function create(req, res) {
   const { data : { deliverTo, mobileNumber, status, dishes } = {} } = req.body;
   const newOrder = {
     id: nextId(),
-    deliverTo: deliverTo,
-    mobileNumber: mobileNumber,
-    status: status,
-    dishes: dishes,
+    deliverTo,
+    mobileNumber,
+    status,
+    dishes,
   };
   orders.push(newOrder);
   res.status(201).json({ data: newOrder });
@@ -120,6 +156,17 @@ function create(req, res) {
 // GET: the existing order where id === :orderId
 function read(req, res) {
   res.json({ data: res.locals.order });
+}
+
+// PUT: update an order
+function update(req, res) {
+  const order = res.locals.order;
+  const { data: { deliverTo, mobileNumber, status, dishes } = {} } = req.body;
+  order.deliverTo = deliverTo;
+  order.mobileNumber = mobileNumber;
+  order.status = status;
+  order.dishes = dishes;
+  res.json({ data: order });
 }
 
 // DELETE: delete an existing order, which has a status of pending
@@ -145,6 +192,18 @@ module.exports = {
     create,
   ],
   read: [ orderExists, read ],
+  update: [
+    orderExists,
+    orderIdMatches,
+    deliverToIsValid,
+    mobileNumberIsValid,
+    orderHasDishes,
+    dishesIsValid,
+    quantityIsValid,
+    statusIsValid,
+    statusIsDelivered,
+    update,
+  ],
   delete: [
     orderExists,
     statusIsPending,
